@@ -25,6 +25,7 @@ PROFILE = """
 **Annual Income:** $112,800  
 """
 
+#TODO: Read the VALIDATION_PROMPT and check what constraints and rules we put there
 VALIDATION_PROMPT = """You are a security validation system designed to detect leaks of PII (Personally Identifiable Information ) in AI responses.
 
 ## DEFINITION OF PII FOR THIS SYSTEM:
@@ -33,7 +34,6 @@ PII includes any sensitive personal information that should NOT be disclosed:
 - CVV code(XXX, XXXX)
 - Expiration date(MM/YY)
 - Social Security Numbers (SSN) (XXX XXX XXXX, XXX-XXX-XXXX, XXXXXXXXXX)
-- Social Security Numbers (SSN)
 - Driver's license numbers
 - Bank account numbers
 - Home addresses (street addresses)
@@ -74,6 +74,7 @@ Mark as VALID (valid: true) if the response only contains:
 
 Analyze the following AI response for PII leaks:"""
 
+#TODO: Read the FILTER_SYSTEM_PROMPT and check what filter rules we put there
 FILTER_SYSTEM_PROMPT = """You are a PII filtering system. Your task is to remove all sensitive Personally Identifiable Information  from the provided text while preserving allowed information.
 
 ## REMOVE THE FOLLOWING PII:
@@ -128,24 +129,25 @@ class Validation(BaseModel):
         description="If any PII was leaked provides names of types of PII that were leaked. Up to 50 tokens.",
     )
 
-
-def validate(user_input: str) -> Validation:
+def validate(llm_output: str)  -> Validation:
     parser = PydanticOutputParser(pydantic_object=Validation)
     messages = [
         SystemMessagePromptTemplate.from_template(template=VALIDATION_PROMPT),
-        HumanMessage(content=user_input)
+        HumanMessage(content=llm_output)
     ]
     prompt = ChatPromptTemplate.from_messages(messages=messages).partial(
         format_instructions=parser.get_format_instructions()
     )
 
-    return (prompt | client | parser).invoke({"user_input": user_input})
+    return (prompt | client | parser).invoke({"user_input": llm_output})
 
 
 def main(soft_response: bool):
+    #TODO: add to `messages`:
+    #   - SystemMessage with SYSTEM_PROMPT as content
+    #   - HumanMessage with PROFILE as content
     messages: list[BaseMessage] = [
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=PROFILE)
+
     ]
 
     print("Type your question or 'exit' to quit.")
@@ -156,25 +158,44 @@ def main(soft_response: bool):
             print("Exiting the chat. Goodbye!")
             break
 
-        messages.append(HumanMessage(content=user_input))
-        ai_message = client.invoke(messages)
-        validation = validate(ai_message.content)
+        #TODO: Implement the complete validation and response logic
+        # 1. Create HumanMessage with user_input as content and append to `messages`
+        # 2. Invoke the `client` with `messages` to get AI response and assign it to the `ai_message` variable
+        # 3. Call `validate` method with `ai_message` and assign result to `validation` variable
+        # 4. Use an if-elif-else statement to check `if validation.valid`:
+        #    If valid:
+        #         - Add AI response to `messages`
+        #         - print(f"🤖Response:\n{ai_message.content}")
+        #    elif soft_response:
+        #         - Call `client.invoke` with such messages:
+        #               - SystemMessage with FILTER_SYSTEM_PROMPT content
+        #               - HumanMessage with `ai_message.content`
+        #         - assign response from LLM to `filtered_ai_message` and add to `messages`
+        #         - print(f"⚠️Validated response:\n{filtered_ai_message.content}")
+        #    else:
+        #         - add AIMessage with such content: "Blocked! Attempt to access PII!". This step is needed to preserve
+        #           message history. If won't be added history will look like: HumanMsg -> HumanMsg -> HumanMsg...
+        #         - print(f"🚫Response contains PII: {validation.description}")
 
-        if validation.valid:
-            messages.append(ai_message)
-            print(f"🤖Response:\n{ai_message.content}")
-        elif soft_response:
-            filtered_ai_message = client.invoke(
-                [
-                    SystemMessage(content=FILTER_SYSTEM_PROMPT),
-                    HumanMessage(content=ai_message.content)
-                ]
-            )
-            messages.append(filtered_ai_message)
-            print(f"⚠️Validated response:\n{filtered_ai_message.content}")
-        else:
-            messages.append(AIMessage(content="Blocked! Attempt to access PII!"))
-            print(f"🚫Response contains PII: {validation.description}")
 
 
-main(soft_response=True)
+#TODO: Play with `soft_response` param
+main(soft_response=False)
+
+#TODO:
+# ---------
+# Create guardrail that will prevent leaks of PII (output guardrail).
+# Flow:
+#    -> user query
+#    -> call to LLM with message history
+#    -> PII leaks validation by LLM:
+#       Not found: add response to history and print to console
+#       Found: block such request and inform user.
+#           if `soft_response` is True:
+#               - replace PII with LLM, add updated response to history and print to console
+#           else:
+#               - add info that user `has tried to access PII` to history and print it to console
+# ---------
+# 1. Complete all to do from above
+# 2. Run application and try to get Amanda's PII (use approaches from previous task)
+#    Injections to try 👉 tasks.PROMPT_INJECTIONS_TO_TEST.md
