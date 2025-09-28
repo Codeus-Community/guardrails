@@ -48,6 +48,8 @@ By completing these tasks, you will learn:
 
 ## 📝 Your Tasks
 
+### If the task in the main branch is hard for you, then switch to the `with-detailed-description` branch
+
 #### Task 1: Understanding Prompt Injections [prompt_injection.py](tasks/t_1/prompt_injection.py)
 #### Task 2: Input Validation Guardrail [input_llm_based_validation.py](tasks/t_2/input_llm_based_validation.py)
 #### Task 3: Output Validation & Streaming Protection: (`t_3/`)[t_3/](tasks/t_3)
